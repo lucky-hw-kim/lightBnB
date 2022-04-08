@@ -10,8 +10,6 @@ database: process.env.DATABASE
 }
 const pool = new Pool (config);
 
-// pool.query(`SELECT title FROM properties LIMIT 10;`).then(response => {console.log(response.rows)})
-
 
 /// Users
 
@@ -25,8 +23,7 @@ const getUserWithEmail = function(email) {
   const queryString = `
   SELECT *
   FROM users
-  WHERE email = $1;
-  `;
+  WHERE email = $1;`;
 
   return pool
     .query(queryString ,[email])
@@ -49,8 +46,7 @@ const getUserWithId = function(id) {
   const queryString = `
   SELECT *
   FROM users
-  WHERE id = $1;
-  ;`
+  WHERE id = $1;`;
 
   return pool
     .query(queryString,[id])
@@ -101,8 +97,7 @@ exports.addUser = addUser;
   (start_date, end_date, property_id, guest_id)
   VALUES
   ($1, $2, $3, $4)
-  RETURNING *;
-  `;
+  RETURNING *;`;
   console.log(queryString, queryParams);
   return pool.query(queryString, queryParams)
     .then((result) => {
@@ -127,8 +122,7 @@ const getAllReservations = function(guest_id, limit = 10) {
           reservations.start_date, 
           properties.cost_per_night
     ORDER BY start_date
-    LIMIT $2;
-  `;
+    LIMIT $2;`;
   return pool
     .query(queryString,[guest_id, limit])
     .then(result => result.rows)
@@ -140,68 +134,56 @@ exports.getAllReservations = getAllReservations;
 
 /**
  * Get all properties.
- * @param {{}} options An object containing query options.
+ * @param {{}} options An object containing query options
  * @param {*} limit The number of results to return.
  * @return {Promise<[{}]>}  A promise to the properties.
  */
 const getAllProperties = function(options, limit = 10) {
   const queryParams = [];
+  const whereClause = [];
+  const {city, owner_id, minimum_price_per_night, maximum_price_per_night, minimum_rating} = options;
+
+  // Static query (not changing)
   let queryString = `
   SELECT properties.*, avg(property_reviews.rating) as average_rating
   FROM properties
-  JOIN property_reviews ON properties.id = property_id`;
+  JOIN property_reviews ON properties.id = property_id `;
 
-  if (options.city) {
-    queryParams.push(`%${options.city}%`);
-    queryString += `
-    WHERE city LIKE $${queryParams.length}`;
+  if (city) {
+    queryParams.push(`%${city}%`);
+    whereClause.push(`city LIKE $${queryParams.length}`);
   }
 
-  if (options.owner_id) {
-    queryParams.push(`${options.owner_id}`);
-    queryString += `
-    AND owner_id = $${queryParams.length}`;
+  if (owner_id) {
+    queryParams.push(`${owner_id}`);
+    whereClause.push(`owner_id = $${queryParams.length}`);
   }
   
-  if (options.minimum_price_per_night) {
-    queryParams.push(`${options.minimum_price_per_night}`);
-    if (queryParams.length === 1) {
-    queryString += `
-    WHERE cost_per_night >= $${queryParams.length}
-    `;   
-    } else {
-    queryString += `
-    AND cost_per_night >= $${queryParams.length}
-    `;
-    }
+  if (minimum_price_per_night) {
+    queryParams.push(`${minimum_price_per_night}`);
+    whereClause.push(`cost_per_night >= $${queryParams.length}`)
   }
 
-  if (options.maximum_price_per_night) {
-    queryParams.push(`${options.maximum_price_per_night}`);
-    if (queryParams.length === 1) {
-      queryString +=  `
-      WHERE cost_per_night <= $${queryParams.length} 
-      `;
-    } else {
-      queryString += `
-      AND cost_per_night <= $${queryParams.length} 
-      `;
-    }
+  if (maximum_price_per_night) {
+    queryParams.push(`${maximum_price_per_night}`);
+    whereClause.push(`cost_per_night <= $${queryParams.length}`);
+  }
+
+  if(whereClause.length > 0) {
+  queryString += `WHERE ` + whereClause.join(` AND `);
   }
   
-  queryString += `
-  GROUP BY properties.id`
+  queryString += `GROUP BY properties.id`;
 
-  if (options.minimum_rating) {
-    queryParams.push(`${options.minimum_rating}`);
+  if (minimum_rating) {
+    queryParams.push(`${minimum_rating}`);
     queryString += `
     HAVING avg(property_reviews.rating) >= $${queryParams.length}`;
   }
   queryParams.push(limit);
   queryString += `
   ORDER BY cost_per_night
-  LIMIT $${queryParams.length};
-  `;
+  LIMIT $${queryParams.length};`;
 
   return pool
   .query(queryString, queryParams)
