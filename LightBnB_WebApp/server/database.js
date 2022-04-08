@@ -1,11 +1,12 @@
 // const properties = require('./json/properties.json');
 const users = require('./json/users.json');
+require('dotenv').config();
 const { Pool } = require('pg');
 const config = {
-host: 'localhost',
-user: 'vagrant',
-password: '123',
-database: 'lightbnb',
+host: process.env.HOST,
+user: process.env.USER,
+password: process.env.PASSWORD,
+database: process.env.DATABASE
 }
 const pool = new Pool (config);
 
@@ -93,8 +94,28 @@ exports.addUser = addUser;
  * @param {string} guest_id The id of the user.
  * @return {Promise<[{}]>} A promise to the reservations.
  */
-const getAllReservations = function(guest_id, limit = 10) {
+ const makeReservation = function (reservation) {
+  const queryParams = [reservation.start_date, reservation.end_date, reservation.property_id, reservation.guest_id];
+  //const values = details.map((key) => reservationDetails[key] ? reservationDetails[key] : null);
+  const queryString = `
+  INSERT INTO reservations
+  (start_date, end_date, property_id, guest_id)
+  VALUES
+  ($1, $2, $3, $4)
+  RETURNING *;
+  `;
+  console.log(queryString, queryParams);
+  return pool.query(queryString, queryParams)
+    .then((result) => {
+      console.log(result.rows)
+      return result.rows
+    })
+    .catch((e) => e.message);
+};
+exports.makeReservation = makeReservation;
 
+const getAllReservations = function(guest_id, limit = 10) {
+  
   const queryString = `
   SELECT reservations.*
       FROM reservations 
@@ -182,8 +203,6 @@ const getAllProperties = function(options, limit = 10) {
   ORDER BY cost_per_night
   LIMIT $${queryParams.length};
   `;
-
-  console.log(queryString, queryParams);
 
   return pool
   .query(queryString, queryParams)
