@@ -96,7 +96,6 @@ exports.addUser = addUser;
  */
  const makeReservation = function (reservation) {
   const queryParams = [reservation.start_date, reservation.end_date, reservation.property_id, reservation.guest_id];
-  //const values = details.map((key) => reservationDetails[key] ? reservationDetails[key] : null);
   const queryString = `
   INSERT INTO reservations
   (start_date, end_date, property_id, guest_id)
